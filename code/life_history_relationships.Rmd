@@ -1,0 +1,52 @@
+---
+title: "Life History Relationships relevant to IPM model"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load libraries and relevant data}
+library(tidyverse)
+
+life_history_data <- read_csv("life_history_model.csv")
+
+```
+
+## length-age regressions 
+```{r}
+# Males
+EKL_len_age_M_reg <- lm(Len~age,life_history_data %>% filter(sex=="M"))
+summary(EKL_len_age_M_reg)
+
+# Females
+EKL_len_age_F_reg <- lm(Len~age,life_history_data %>% filter(sex=="F"))
+summary(EKL_len_age_F_reg)
+```
+
+## mass-age regressions 
+```{r}
+# Males
+EKL_mass_age_M_reg <- lm(weight~age,life_history_data %>% filter(sex=="M"))
+summary(EKL_mass_age_M_reg)
+
+# Females
+EKL_mass_age_F_reg <- lm(weight~age,life_history_data %>% filter(sex=="F"))
+summary(EKL_mass_age_F_reg)
+```
+
+## Length-Fecundity regression (log transformed)
+
+```{r}
+## Elk Lake fecundity regression
+life_history_data %>% filter(sample_id != "EK2021_428") %>% 
+  lm(formula = log(fecundity) ~ log(Len)) %>% summary()
+```
+
+## Length-egg mass regression (log transformed)
+```{r}
+life_history_data %>% filter(sample_id != "EK2021_428") %>% 
+  lm(formula = log(mean_dry_mass) ~ log(Len)) %>% summary()
+```
+
