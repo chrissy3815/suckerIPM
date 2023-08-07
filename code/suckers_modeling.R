@@ -96,12 +96,20 @@ for (x in 1:N) {
 
 yr2_predicted<- h * g_matrix %*% yr1_counts$counts
 
+# add reproduction:
+Fmat<- h*(f_z1z(meshpts, meshpts, m_par))
+yr2_predicted<- yr2_predicted + Fmat %*% yr1_counts$counts
+
+
 # Compare the predicted size distribution to the observed distribution:
 yr2_counts<- hist(EKL_2021$length, breaks = size_breaks)
 
 par(mfrow=c(1,1))
 plot(meshpts, yr2_predicted, type='l')
 lines(meshpts, yr2_counts$counts, col='red')
+lines(meshpts, yr1_counts$counts, col='blue')
+
+# okay this doesn't work, need to discuss with Steve.
 
 ###########################################################################
 ### EGG PRODUCTION model
@@ -211,8 +219,10 @@ U <- 600.00    # upper size limit in mm - must be larger than Linf
 h <- (U-L)/m # integration bin width
 meshpts <-  L + (1:m)*h - h/2
 
-Pmat<- h*(p_z1z(meshpts, meshpts, m_par))
+Pmat<- h*p_z1z(meshpts, meshpts, m_par)
 Fmat<- h*(f_z1z(meshpts, meshpts, m_par))
+# P <- h * (outer(meshpts, meshpts, P_z1z, m.par = m.par))
+# F <- h * (outer(meshpts, meshpts, F_z1z, m.par = m.par))
 Kmat<- Pmat+Fmat
 
 # Plot the kernels to check it looks okay

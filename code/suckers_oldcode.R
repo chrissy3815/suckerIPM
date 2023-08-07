@@ -16,13 +16,4 @@ abline(0,1, lty=2)
 K<- -log(0.8665)
 
 
-p_z1z <- function(z1, z, m_par) {
-  N<- length(z1)
-  delta_z<- z1[2]-z1[1]
-  g_matrix <- matrix(0, N, N)
-  for (x in 1:N) {
-    g_matrix[, x] <- g_z1z(z, rep(z[x], times = N), m_par)
-    g_matrix[, x] <- g_matrix[, x] / (sum(g_matrix[, x]) * delta_z)
-  }
-  return(g_matrix %*% diag(s_z(z, m_par)))
-}
+
