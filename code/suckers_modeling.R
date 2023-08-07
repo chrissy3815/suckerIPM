@@ -45,7 +45,9 @@ summary(lineargrowth)
 par(mfrow=c(1,1))
 plot(femaleLH$age, femaleLH$Len)
 
-# Take Lmax from the literature: 500 mm, and this is reasonable for the dataset because the largest individual was 465
+## Fit a von Bertalanffy model using non-linear least squares and a fixed Linf
+
+# Take Linf from the literature: 500 mm, and this is reasonable for the dataset because the largest individual was 465
 vbStarts<- list(Linf=500, K=0.1, t0=-3)
 vbTypical<-Len~Linf*(1-exp(-K*(age-t0)))
 data_forfitting<- femaleLH[,c("age", "Len")]
@@ -62,6 +64,44 @@ lines(exes, whys)
 grow_sd<- 25 #abs(max(femaleLH$Len)-500)
 growth_params<- list(Linf=500, K=coef(fitTypical)[1], t0=coef(fitTypical)[2],
                      grow_sd = grow_sd)
+
+###########################################################################
+### Survival model
+###########################################################################
+size_breaks<- seq(100, 470, 10)
+yr1_counts<- hist(EKL_2020$length, breaks = size_breaks)
+
+# Project these individuals forward using the growth function:
+g_z1z <- function(z1, z, m_par) {
+  mu <- m_par$Linf * (1 - exp(- m_par$K)) +
+    exp(-m_par$K) * z           # mean size next year
+  sig <- m_par$grow_sd                       # sd about mean
+  p_den_grow <- dnorm(z1, mean = mu, sd = sig)    # pdf that you are size z1
+  # given you were size z
+  return(p_den_grow)
+}
+
+# now use that pdf to project the sizes forward:
+N<- length(size_breaks)-1
+L <- min(size_breaks)   # lower size limit in mm
+U <- max(size_breaks)    # upper size limit in mm - must larger than Linf
+h <- (U-L)/N # integration bin width
+meshpts <-  L + (1:N)*h - h/2
+
+g_matrix <- matrix(0, N, N)
+for (x in 1:N) {
+    g_matrix[, x] <- g_z1z(meshpts, rep(meshpts[x], times = N), growth_params)
+    g_matrix[, x] <- g_matrix[, x] / (sum(g_matrix[, x]) * h)
+}
+
+yr2_predicted<- h * g_matrix %*% yr1_counts$counts
+
+# Compare the predicted size distribution to the observed distribution:
+yr2_counts<- hist(EKL_2021$length, breaks = size_breaks)
+
+par(mfrow=c(1,1))
+plot(meshpts, yr2_predicted, type='l')
+lines(meshpts, yr2_counts$counts, col='red')
 
 ###########################################################################
 ### EGG PRODUCTION model
@@ -167,7 +207,7 @@ p_z1z <- function(z1, z, m_par) {
 ## Build the deterministic kernels ##
 m <- 300 # number of meshpoints: bins for the integration
 L <- 0.00   # lower size limit in mm
-U <- 600.00    # upper size limit in mm - must larger than Linf
+U <- 600.00    # upper size limit in mm - must be larger than Linf
 h <- (U-L)/m # integration bin width
 meshpts <-  L + (1:m)*h - h/2
 
