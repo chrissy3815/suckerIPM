@@ -6,6 +6,7 @@
 # Load necessary packages:
 library(readxl)
 library(here)
+library(exactLTRE)
 source(here("code", "MatrixImage.R"))
 
 # Read in data:
@@ -68,54 +69,56 @@ growth_params<- list(Linf=500, K=coef(fitTypical)[1], t0=coef(fitTypical)[2],
 ###########################################################################
 ### Survival model
 ###########################################################################
-size_breaks<- seq(100, 470, 10)
-yr1_counts<- hist(EKL_2020$length, breaks = size_breaks)
+# point estimates from literature
+surv_points<- data.frame(len=c(10, 20, 30, 112, 200, 400),
+                         surv = 1-c(0.997, 0.997, 0.997, 0.97, 0.25, 0.25))
 
-# Project these individuals forward using the growth function:
-g_z1z <- function(z1, z, m_par) {
-  mu <- m_par$Linf * (1 - exp(- m_par$K)) +
-    exp(-m_par$K) * z           # mean size next year
-  sig <- m_par$grow_sd                       # sd about mean
-  p_den_grow <- dnorm(z1, mean = mu, sd = sig)    # pdf that you are size z1
-  # given you were size z
-  return(p_den_grow)
-}
+# fit a logistic curve:
+surv_model<- nls(surv~Smax/(1+exp(-k*(len-x0))), data=surv_points,
+                 algorithm = "port",
+                 start = list(Smax = 0.75, k = 0.1, x0 = 130),
+                 lower = rep(0,3), upper = c(1, Inf, 600))
+fitted_surv<- function(x){coef(surv_model)[1] / (1+exp(-coef(surv_model)[2]*(x-coef(surv_model)[3])))}
 
-# now use that pdf to project the sizes forward:
-N<- length(size_breaks)-1
-L <- min(size_breaks)   # lower size limit in mm
-U <- max(size_breaks)    # upper size limit in mm - must larger than Linf
-h <- (U-L)/N # integration bin width
-meshpts <-  L + (1:N)*h - h/2
-
-g_matrix <- matrix(0, N, N)
-for (x in 1:N) {
-    g_matrix[, x] <- g_z1z(meshpts, rep(meshpts[x], times = N), growth_params)
-    g_matrix[, x] <- g_matrix[, x] / (sum(g_matrix[, x]) * h)
-}
-
-yr2_predicted<- h * g_matrix %*% yr1_counts$counts
-
-# add reproduction:
-Fmat<- h*(f_z1z(meshpts, meshpts, m_par))
-yr2_predicted<- yr2_predicted + Fmat %*% yr1_counts$counts
-
-
-# Compare the predicted size distribution to the observed distribution:
-yr2_counts<- hist(EKL_2021$length, breaks = size_breaks)
-
-par(mfrow=c(1,1))
-plot(meshpts, yr2_predicted, type='l')
-lines(meshpts, yr2_counts$counts, col='red')
-lines(meshpts, yr1_counts$counts, col='blue')
-
-# okay this doesn't work, need to discuss with Steve.
+# plot:
+plot(surv_points$len, surv_points$surv)
+exes<- 1:600
+whys<- fitted_surv(exes)
+lines(exes, whys)
 
 ###########################################################################
 ### EGG PRODUCTION model
 ###########################################################################
 # linear model in log-log space (Carl's results)
 egg_model<- lm(formula = log(fecundity) ~ log(Len), data=femaleLH)
+
+# plot it:
+plot(femaleLH$Len, femaleLH$fecundity, xlim=c(0,600))
+exes<- 1:600
+whys<- exp(m_par$egg_logslope*log(exes) + m_par$egg_logintercept)
+lines(exes, whys)
+
+###########################################################################
+### Maturity ogive
+###########################################################################
+# expectation: ~5% of age 2 spawn, over 50% at age 3, 90% from age 4 onwards
+# point estimates from literature
+matur_points<- data.frame(len=c(70, 112, 120, 140, 170, 400),
+                          p_spawn = c(0, 0.01, 0.05, 0.5, 0.9, 0.9))
+
+# fit a logistic curve:
+matur_model<- nls(p_spawn~Pmax/(1+exp(-k*(len-x0))), data=matur_points,
+                  algorithm = "port",
+                  start = list(Pmax = 0.9, k = 0.1, x0 = 140),
+                  lower = rep(0,3), upper = c(1, Inf, 600))
+fitted_matur<- function(x){coef(matur_model)[1] / (1+exp(-coef(matur_model)[2]*(x-coef(matur_model)[3])))}
+
+# plot:
+plot(matur_points$len, matur_points$p_spawn)
+exes<- 1:600
+whys<- fitted_matur(exes)
+lines(exes, whys)
+
 
 ###########################################################################
 ### Mostly following Pierce et al. 2023, model building:
@@ -128,26 +131,23 @@ m_par <- list(
   Linf  =   growth_params$Linf, # maximum length in mm
   grow_sd   =   growth_params$grow_sd,  # growth sd
   ## Survival parameters
-  surv_min  =  0.002, # PLACEHOLDER min survival - gizzard shad Bodola (1955)
-  # Then et al (2015): surv_max computed from
-  # 1-natural mortality = 1 - 8.872*K^.73 L^-.33
-  surv_max = 1 - 8.872*growth_params$K^.73*growth_params$Linf^(-.33),
-  # inflection point: will be temp dependent
-  # computed for La Grange Reach
-  surv_alpha = 80.0136, # PLACEHOLDER - taken from Pierce et al. 2023
-  surv_beta = -139.9312, # slope PLACEHOLDER - taken from Pierce
+  surv_max = coef(surv_model)[1], # maximum survival value
+  surv_k = coef(surv_model)[2], # rate of increase of survival
+  surv_midsize = coef(surv_model)[3], # size at which survival is halfway between upper and lower limit
   ## Size of age-1 individuals:
   recruit_mean = 112, # mean size of age-1 individuals
   recruit_sd = growth_params$grow_sd, # same as grow_sd
   ## PLACEHOLDER:
-  egg_viable = 0.02,
+  egg_viable = 0.1,
   ## Estimated from fecundity data
   egg_logslope = egg_model$coefficients[2], # 2.776441
   egg_logintercept =  egg_model$coefficients[1], # -7.988805
   ## Spawning Probability
-  prob_spawn = 0.90, # PLACEHOLDER
+  pb_max = coef(matur_model)[1], # maximum probability of spawning
+  pb_k = coef(matur_model)[2], # rate of increase of spawning probability with size
+  pb_midsize = coef(matur_model)[3], # size at which 50% of individuals spawn
   ## YOY survival probability:
-  s0= 0.01 # PLACEHOLDER
+  s0= 0.03 # PLACEHOLDER
 )
 
 ##########################
@@ -168,16 +168,20 @@ g_z1z <- function(z1, z, m_par) {
   return(p_den_grow)
 }
 
-## Adult Survival function, 4-parameter logistic
+## Adult Survival function, 3-parameter logistic
 s_z <- function(z, m_par) {
-  m_par$surv_min + (m_par$surv_max - m_par$surv_min) /
-    (1 + exp(m_par$surv_beta * (log(z) - log(m_par$surv_alpha))))
+  m_par$surv_max / (1 + exp( -m_par$surv_k * (z - m_par$surv_midsize)))
 }
 
 ## Reproduction, log-linear
 eggs_z <- function(z, m_par) { # Eggs produced (note: data are in thousands)
   eggz<- exp(m_par$egg_logslope*log(z) + m_par$egg_logintercept)
   return(eggz)
+}
+
+## Probability of spawning, 3-parameter logistic
+pb_z<- function(z, m_par){
+  m_par$pb_max / (1 + exp( -m_par$pb_k * (z - m_par$pb_midsize)))
 }
 
 ## Recruit size pdf
@@ -194,7 +198,7 @@ c_1z1 <- function(z1, m_par) {
 
 ## Fecundity Kernel
 f_z1z <- function(z1, z, m_par) {
-  age1_dist <- m_par$prob_spawn * eggs_z(z, m_par) *
+  age1_dist <- pb_z(z, m_par) * eggs_z(z, m_par) *
     m_par$egg_viable * m_par$s0
   #returns fecundity kernel (as a matrix). Recruits= F.dot(n*delta_z)
   return(outer(c_1z1(z1, m_par), age1_dist))
@@ -225,10 +229,23 @@ Fmat<- h*(f_z1z(meshpts, meshpts, m_par))
 # F <- h * (outer(meshpts, meshpts, F_z1z, m.par = m.par))
 Kmat<- Pmat+Fmat
 
-# Plot the kernels to check it looks okay
+## Plot the kernels to check it looks okay
 matrix.image(Pmat, x=meshpts, y=meshpts, main='Growth+Survival')
 matrix.image(Fmat, x=meshpts, y=meshpts, main='Reproduction')
 matrix.image(Kmat, x=meshpts, y=meshpts, main='Projection Kernel')
 
-# population growth rate (currently, it shows the population as just barely growing
-max(Re(eigen(Kmat, only.values=TRUE)$values))
+## Calculate a few metrics to see how the model is behaving:
+eigz<- eigen(Kmat)
+# population growth rate
+lambda<- max(Re(eigz$values))
+
+# calculate average lifespan:
+lifespan(Pmat) # note that this is dependent on starting size.
+# Small individuals (including YOY) live only one year on average.
+# Larger individuals have an expectation of more years of life.
+
+# plot the population size distribution at stable growth
+popvec<- eigz$vectors[,1]
+popvec<- Re(popvec)/sum(Re(popvec))
+par(mfrow=c(1,1))
+barplot(popvec, names.arg = meshpts)
