@@ -92,10 +92,14 @@ lines(exes, whys)
 # linear model in log-log space (Carl's results)
 egg_model<- lm(formula = log(fecundity) ~ log(Len), data=femaleLH)
 
+egg_logslope = egg_model$coefficients[2] # 2.776441
+egg_logintercept =  egg_model$coefficients[1] # -7.988805
+
 # plot it:
-plot(femaleLH$Len, femaleLH$fecundity, xlim=c(0,600))
+plot(femaleLH$Len, femaleLH$fecundity, xlim=c(0,600),
+     xlab='Female length (mm)', ylab='Annual egg production')
 exes<- 1:600
-whys<- exp(m_par$egg_logslope*log(exes) + m_par$egg_logintercept)
+whys<- exp(egg_logslope*log(exes) + egg_logintercept)
 lines(exes, whys)
 
 ###########################################################################
