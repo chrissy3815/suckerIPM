@@ -19,9 +19,32 @@ surv_at_size_plot<- function(Pmat, sizes){
 
 }
 
-# Function to return the distribution of ages at death:
+#Function to return the distribution of ages at death:
+### Note to Carl: This has turned out to be more mathematically complicated than
+#I realized. I can write a function to calculate this if you really want it, but
+#maybe just knowing by what age 99% of the population has died is enough?
 
 # Function to return the age at which X percentage of population is dead:
+age_most_individuals_dead<- function(Pmat, Fmat, proportion=0.9){
+  # calculate the stable size distribution:
+  Kmat<- Pmat+Fmat #overall projection kernel
+  eigz<- eigen(Kmat)
+  stable_size_dist<- Re(eigz$vectors[,which(Re(eigz$values)==max(Re(eigz$values)))])
+  # cohort of YOY:
+  YOY_dist<- Fmat%*%stable_size_dist
+  YOY_dist<- YOY_dist/sum(YOY_dist) #re-scale to length 1
+  # initialize survival to age a:
+  Pa<- diag(1, dim(Pmat)[1])
+  PaC0<- Pa%*%YOY_dist
+  # initialize age counter
+  a<- 1
+  while (sum(PaC0)>(1-proportion)){
+    Pa<- Pmat %*% Pa
+    PaC0<- Pa %*% YOY_dist
+    a<- a+1
+  }
+  return(a)
+}
 
 # Function to return stable size distribution, without YOY:
 stable_size_dist_noYOY<- function(Pmat, Fmat){

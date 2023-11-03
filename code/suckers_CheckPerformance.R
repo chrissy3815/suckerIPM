@@ -12,6 +12,9 @@
 #objects and the summer sucker objects active at the same time, to enable
 #comparisons.
 
+# source the functions:
+source('code/suckers_functions.R')
+
 # plot the egg production (does not differ between phenotypes):
 plot(femaleLH$Len, femaleLH$fecundity, xlim=c(0,600),
      xlab='Female length (mm)', ylab='Annual egg production')
@@ -25,4 +28,14 @@ lines(exes, whys)
 # plot the stable size distribution without any YOY:
 ws_dist_noYOY<- stable_size_dist_noYOY(Pmat, Fmat)
 plot(meshpts, ws_dist_noYOY, type='l', xlab='Length (mm)', ylab='Probability density')
+
+# plot the stable size distribution, assuming no individuals under 80 mm caught:
+ws_dist_noCatch80mm<- stable_size_dist_sizeThreshold(Pmat, Fmat, meshpts, threshold=80)
+plot(meshpts, ws_dist_noCatch100mm, type='l', xlab='Length(mm)', ylab='Probability density')
+
+# calculate the age at which 95% of individuals are dead:
+age_most_individuals_dead(Pmat, Fmat, proportion=0.95)
+# calculate the age at which 99% of individuals are dead:
+age_most_individuals_dead(Pmat, Fmat, proportion=0.99)
+
 
