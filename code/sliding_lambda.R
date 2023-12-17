@@ -66,28 +66,28 @@ lines(exes, whys)
 # sd about mean: Pierce et al. say that they use max(L_obs)-Linf, but I can't make it make sense.
 ws_grow_sd<- 25 #abs(max(femaleLH$Len)-500)
 ws_growth_params<- list(Linf=500, K=coef(ws_fitTypical)[1], t0=coef(ws_fitTypical)[2],
-                     grow_sd = ws_grow_sd)
+                        grow_sd = ws_grow_sd)
 
 ###########################################################################
 ### Survival model
 ###########################################################################
 # point estimates from literature
 ws_surv_points<- data.frame(len=c(130, 140, 150, 180, 250, 300),
-                         surv = 1-c(0.99, 0.99, 0.99, 0.92, 0.25, 0.25))
+                            surv = 1-c(0.99, 0.99, 0.99, 0.92, 0.25, 0.25))
 
 # fit a logistic curve:
 ws_surv_model<- nls(surv~Smax/(1+exp(-k*(len-x0))), data=ws_surv_points,
-                 algorithm = "port",
-                 start = list(Smax = 0.80, k = 0.05, x0 = 150),
-                 lower = rep(0,3), upper = c(1, Inf, 600))
+                    algorithm = "port",
+                    start = list(Smax = 0.80, k = 0.05, x0 = 150),
+                    lower = rep(0,3), upper = c(1, Inf, 600))
 ws_fitted_surv<- function(x){coef(ws_surv_model)[1] / (1+exp(-coef(ws_surv_model)[2]*(x-coef(ws_surv_model)[3])))}
 
 # Survival model b (4-parameter)
 surv_min <-  0.003
-surv_max <- 0.80
+surv_max <- 0.90
 surv_alpha <- 130
 surv_beta <- -17
-four_fitted_surv<- function(z){
+four_fitted_surv<- function(z) {
   surv_min + (surv_max - surv_min) /
     (1 + exp(surv_beta * (log(z) - log(surv_alpha))))
 }
@@ -96,10 +96,10 @@ four_fitted_surv<- function(z){
 plot(ws_surv_points$len, ws_surv_points$surv, xlim = c(0,500), ylim = c(0,1), main = "3-param vs 4-param survival curve")
 exes<- 1:600
 ws_whys<- ws_fitted_surv(exes)
-four_whys<- four_fitted_surv(exes)
+four_whys<- fourfitted_surv(exes)
 #lines(exes, ws_whys)
 lines(exes, four_whys)
-lines(exes, ws_whys, lty = 2)
+lines(exes, whys, lty = 2)
 
 ###########################################################################
 ### EGG PRODUCTION model
@@ -127,13 +127,13 @@ lines(exes, ws_test_whys, lty = 2)
 # expectation: ~5% of age 2 spawn, over 50% at age 3, 90% from age 4 onwards
 # point estimates from literature
 ws_matur_points<- data.frame(len=c(150-10, 192-10, 200-10, 220-10, 260, 490),
-                          p_spawn = c(0, 0.01, 0.05, 0.5, 0.9, 0.9))
+                             p_spawn = c(0, 0.01, 0.05, 0.5, 0.9, 0.9))
 
 # fit a logistic curve:
 ws_matur_model<- nls(p_spawn~Pmax/(1+exp(-k*(len-x0))), data=ws_matur_points,
-                  algorithm = "port",
-                  start = list(Pmax = 0.9, k = 0.1, x0 = 230),
-                  lower = rep(0,3), upper = c(1, Inf, 600))
+                     algorithm = "port",
+                     start = list(Pmax = 0.9, k = 0.1, x0 = 230),
+                     lower = rep(0,3), upper = c(1, Inf, 600))
 ws_fitted_matur<- function(x){coef(ws_matur_model)[1] / (1+exp(-coef(ws_matur_model)[2]*(x-coef(ws_matur_model)[3])))}
 # plot:
 plot(ws_matur_points$len, ws_matur_points$p_spawn)
@@ -144,7 +144,15 @@ lines(exes, ws_whys)
 ###########################################################################
 ### Mostly following Pierce et al. 2023, model building:
 ###########################################################################
+## make table with values of surv_max and pb_midsize
+x <- c(seq(0.8,0.8,length.out = 10),seq(0.80, 0.60, length.out = 10), seq(0.6,0.6,length.out = 5))
+y <- seq(300, 100, length.out = 25)
+slide_params <- matrix(c(x,y), ncol = 2, nrow = 25)
+## Run model for corresponding values of surv_max and mat_alpha
 
+lambda_tab <- data.frame(surv_max = slide_params[,1], pb_midsize = slide_params[,2], lambda = NA)
+
+for(i in 1:length(slide_params)){
 # assign parameters:
 ws_m_par <- list(
   ## Growth parameters
@@ -157,7 +165,7 @@ ws_m_par <- list(
   #surv_midsize = coef(ws_surv_model)[3], # size at which survival is halfway between upper and lower limit
   ## Survival parameters b
   surv_min =  surv_min,
-  surv_max = surv_max,
+  surv_max = slide_params[i,1],
   surv_alpha = surv_alpha,
   surv_beta = surv_beta,
   ## Size of age-1 individuals:
@@ -171,7 +179,7 @@ ws_m_par <- list(
   ## Spawning Probability
   pb_max = coef(ws_matur_model)[1], # maximum probability of spawning
   pb_k = coef(ws_matur_model)[2], # rate of increase of spawning probability with size
-  pb_midsize = coef(ws_matur_model)[3], # size at which 50% of individuals spawn
+  pb_midsize = slide_params[i,2], # size at which 50% of individuals spawn
   ## YOY survival probability:
   s0= 0.1 # PLACEHOLDER
 )
@@ -195,7 +203,7 @@ ws_g_z1z <- function(z1, z, ws_m_par) {
 }
 
 ## Adult Survival function, 3-parameter logistic
-ws_s_z <- function(z, ws_m_par) {
+ws_s_z <- function(z, m_par) {
   ws_m_par$surv_min + (ws_m_par$surv_max - ws_m_par$surv_min) /
     (1 + exp(ws_m_par$surv_beta * (log(z) - log(ws_m_par$surv_alpha))))
 }
@@ -258,24 +266,28 @@ ws_Kmat<- ws_Pmat+ws_Fmat
 m_ws_Kmat<- ws_Kmat^0.3
 
 ## Plot the kernels to check it looks okay
-matrix.image(ws_Pmat, x=ws_meshpts, y=ws_meshpts, main='Growth+Survival')
-matrix.image(ws_Fmat, x=ws_meshpts, y=ws_meshpts, main='Reproduction')
-matrix.image(m_ws_Kmat, x=ws_meshpts, y=ws_meshpts, main='Projection Kernel^0.3')
+# matrix.image(ws_Pmat, x=ws_meshpts, y=ws_meshpts, main='Growth+Survival')
+# matrix.image(ws_Fmat, x=ws_meshpts, y=ws_meshpts, main='Reproduction')
+# matrix.image(m_ws_Kmat, x=ws_meshpts, y=ws_meshpts, main='Projection Kernel^0.3')
 
 ## Calculate a few metrics to see how the model is behaving:
 ws_eigz<- eigen(ws_Kmat)
 # population growth rate
 ws_lambda<- max(Re(ws_eigz$values))
-ws_lambda
-
+lambda_tab$lambda[i] <- ws_lambda
+}
 # calculate average lifespan:
 #lifespan(ws_Pmat) # note that this is dependent on starting size.
 # Small individuals (including YOY) live only one year on average.
 # Larger individuals have an expectation of more years of life.
 
 # plot the population size distribution at stable growth
-ws_popvec<- ws_eigz$vectors[,1]
-ws_popvec<- Re(ws_popvec)/sum(Re(ws_popvec))
-par(mfrow=c(1,1))
-barplot(ws_popvec, names.arg = ws_meshpts)
+# ws_popvec<- ws_eigz$vectors[,1]
+# ws_popvec<- Re(ws_popvec)/sum(Re(ws_popvec))
+# par(mfrow=c(1,1))
+# barplot(ws_popvec, names.arg = ws_meshpts)
 
+plot(lambda_tab$lambda~lambda_tab$pb_midsize, type = "l")
+plot(lambda_tab$lambda~lambda_tab$surv_max, type = "l")
+lambda_tab
+plot(lambda_tab$lambda~lambda_tab$pb_midsize)

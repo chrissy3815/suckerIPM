@@ -82,6 +82,6 @@ ws_prob_matur<- ws_pb_z(ws_meshpts, ws_m_par)
 ws_length_dist_matur<- ws_popvec*ws_prob_matur
 ss_prob_matur<- ss_pb_z(ss_meshpts, ss_m_par)
 ss_length_dist_matur<- ss_popvec*ss_prob_matur
-plot(ws_meshpts, ws_length_dist_matur, type = 'l', xlab='Length (mm)', ylab='Probability density', ylim = c(0,0.001), xlim = c(250,600), main = "Mature length distribution")
+plot(ws_meshpts, ws_length_dist_matur, type = 'l', xlab='Length (mm)', ylab='Probability density', ylim = c(0,0.0055), xlim = c(0,600), main = "Mature length distribution")
 lines(ss_meshpts, ss_length_dist_matur, lty = 2)
-legend(300,0.003, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 2)
+legend(260,0.005, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 2)

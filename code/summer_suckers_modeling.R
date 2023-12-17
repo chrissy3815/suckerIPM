@@ -89,12 +89,22 @@ ss_surv_model<- nls(surv~Smax/(1+exp(-k*(len-x0))), data=ss_surv_points,
 ss_fitted_surv<- function(x){coef(ss_surv_model)[1] / (1+exp(-coef(ss_surv_model)[2]*(x-coef(ss_surv_model)[3])))}
 ss_varied_surv<- function(x){0.75 / (1+exp(-.03*(x-150)))}
 
+# Survival model b (4-parameter)
+ss_surv_min <-  0.005
+ss_surv_max <- 0.60
+ss_surv_alpha <- 125
+ss_surv_beta <- -7
+ss_four_fitted_surv<- function(z){
+  surv_min + (surv_max - surv_min) /
+    (1 + exp(surv_beta * (log(z) - log(surv_alpha))))
+}
 # plot:
 plot(ss_surv_points$len, ss_surv_points$surv)
 exes<- 1:600
 whys<- ss_fitted_surv(exes)
-ss_varied_whys <- ss_varied_surv(exes)
+ss_four_whys <- ss_four_fitted_surv(exes)
 lines(exes, whys)
+lines(exes,ss_four_whys, lty = 2)
 
 
 
@@ -148,7 +158,6 @@ legend(250,0.4, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 1.7)
 ###########################################################################
 ### Mostly following Pierce et al. 2023, model building:
 ###########################################################################
-
 # assign parameters:
 ss_m_par <- list(
   ## Growth parameters
@@ -156,9 +165,14 @@ ss_m_par <- list(
   Linf  = ss_growth_params$Linf, # maximum length in mm
   grow_sd   = ss_growth_params$grow_sd,  # growth sd
   ## Survival parameters a
-  surv_max = coef(ss_surv_model)[1], # maximum survival value
-  surv_k = coef(ss_surv_model)[2], # rate of increase of survival
-  surv_midsize = coef(ss_surv_model)[3], # size at which survival is halfway between upper and lower limit
+  # surv_max = coef(ss_surv_model)[1], # maximum survival value
+  # surv_k = coef(ss_surv_model)[2], # rate of increase of survival
+  # surv_midsize = coef(ss_surv_model)[3], # size at which survival is halfway between upper and lower limit
+  ## Survival parameters b
+  surv_min =  ss_surv_min,
+  surv_max = ss_surv_max,
+  surv_alpha = ss_surv_alpha,
+  surv_beta = ss_surv_beta,
   ## Size of age-1 individuals:
   recruit_mean = 112, # mean size of age-1 individuals
   recruit_sd = ss_growth_params$grow_sd, # same as grow_sd
@@ -194,9 +208,11 @@ ss_g_z1z <- function(z1, z, ss_m_par) {
 }
 
 # Adult Survival function a, 3-parameter logistic
-ss_s_z <- function(z, ss_m_par) {
-  ss_m_par$surv_max / (1 + exp( -ss_m_par$surv_k * (z - ss_m_par$surv_midsize)))
+ws_s_z <- function(z, ss_m_par) {
+  ws_m_par$surv_min + (ws_m_par$surv_max - ws_m_par$surv_min) /
+    (1 + exp(ws_m_par$surv_beta * (log(z) - log(ws_m_par$surv_alpha))))
 }
+
 
 ## Adult Survival function b, 4-parameter logistic
 # s_z <- function(z, ss_m_par) {
