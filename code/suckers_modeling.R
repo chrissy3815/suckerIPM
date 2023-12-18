@@ -164,7 +164,7 @@ ws_m_par <- list(
   recruit_mean = 112, # mean size of age-1 individuals
   recruit_sd = ws_growth_params$grow_sd, # same as grow_sd
   ## PLACEHOLDER:
-  egg_viable = 0.03,
+  egg_viable = 0.02,
   ## Estimated from fecundity data
   egg_logslope = ws_test_logslope, #ws_egg_model$coefficients[2], # 3.1082
   egg_logintercept = ws_test_logintercept, #ws_egg_model$coefficients[1], # -9.7183
