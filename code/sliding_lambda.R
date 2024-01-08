@@ -56,9 +56,6 @@ data_forfitting$Linf<- vbStarts$Linf
 fitTypical<-nls(vbTypical,data=data_forfitting, start=list(K=vbStarts$K, t0=-3))
 
 # sd about mean: Pierce et al. say that they use max(L_obs)-Linf, but I can't make it make sense.
-grow_sd<- 25 #abs(max(femaleLH$Len)-500)
-growth_params<- list(Linf=500, K=coef(fitTypical)[1], t0=coef(fitTypical)[2],
-                        grow_sd = grow_sd)
 
 ###########################################################################
 ### Survival model
@@ -115,13 +112,14 @@ fitted_matur<- function(x){coef(matur_model)[1] / (1+exp(-coef(matur_model)[2]*(
 ###########################################################################
 ## make table with values of surv_max and pb_midsize
 # x <- c(seq(0.8,0.8,length.out = 10),seq(0.80, 0.60, length.out = 10), seq(0.6,0.6,length.out = 5)) # fitness benefit ends at 240
-x <- c(seq(0.85,0.85,length.out = 5), seq(0.85,0.8,length.out = 2),seq(0.80, 0.80, length.out = 8), seq(0.8,0.7,length.out = 10))
-y <- seq(300, 100, length.out = 25)
+x <- c(seq(0.85,0.85,length.out = 5), seq(0.85,0.8,length.out = 2),seq(0.80, 0.80, length.out = 8), seq(0.8,0.7,length.out = 10)) # max survival
+y <- seq(300, 100, length.out = 25) # midsize maturity
+z <- c(seq(500,500, length.out = 6), seq(300,300,length.out=19)) # length infinite
 
 
-slide_params <- matrix(c(x,y), ncol = 2, nrow = 25)
+slide_params <- matrix(c(x,y,z), ncol = 3, nrow = 25)
 ## Run model for corresponding values of surv_max and mat_alpha
-lambda_tab <- data.frame(surv_max = slide_params[,1], pb_midsize = slide_params[,2], lambda = NA)
+lambda_tab <- data.frame(surv_max = slide_params[,1], pb_midsize = slide_params[,2], Linf = slide_params[,3], lambda = NA)
 surv_tab <- data.frame(len = NA, surv = NA, pb_midsize = NA)
 
 for(i in 1:length(slide_params)){
@@ -129,8 +127,8 @@ for(i in 1:length(slide_params)){
 m_par <- list(
   ## Growth parameters
   grow_rate = growth_params$K, # growth rate
-  Linf  = growth_params$Linf, # maximum length in mm
-  grow_sd   = growth_params$grow_sd,  # growth sd
+  Linf  = slide_params[i,3], # maximum length in mm
+  grow_sd   = growth_params$grow_sd,  # growth sd #growth_params$Linf,
   ## Survival parameters a
   #surv_max = coef(surv_model)[1], # maximum survival value
   #surv_k = coef(surv_model)[2], # rate of increase of survival
@@ -144,7 +142,7 @@ m_par <- list(
   recruit_mean = 112, # mean size of age-1 individuals
   recruit_sd = growth_params$grow_sd, # same as grow_sd
   ## PLACEHOLDER:
-  egg_viable = 0.03,
+  egg_viable = 0.02,
   ## Estimated from fecundity data
   egg_logslope = test_logslope, #egg_model$coefficients[2], # 3.1082
   egg_logintercept = test_logintercept, #egg_model$coefficients[1], # -9.7183
@@ -268,12 +266,13 @@ surv_tab <- rbind(surv_tab, tmp)
 par(mfrow = c(1,1))
 plot(lambda_tab$lambda~lambda_tab$pb_midsize)
 plot(lambda_tab$surv_max~lambda_tab$pb_midsize)
+lines(lambda_tab$pb_midsize, lambda_tab$Linf*0.001)
 surv_tab %>% group_by(pb_midsize) %>% ggplot(aes(x = len, y = surv, group = pb_midsize)) +
   geom_line(aes(color = pb_midsize), cex = 1) +
   scale_color_continuous(type = "viridis") +
   cowplot::theme_cowplot()
 lambda_tab %>% ggplot(aes(x = pb_midsize, y = lambda)) +
-  geom_point(aes(fill = pb_midsize), shape = 21, color = "black", size = 3) +
+  geom_point(aes(fill = surv_max), shape = 21, color = "black", size = 3) +
   scale_fill_continuous(type = "viridis")
 
 
