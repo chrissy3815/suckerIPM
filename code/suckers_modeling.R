@@ -59,9 +59,11 @@ ws_data_forfitting$Linf<- ws_vbStarts$Linf
 ws_fitTypical<-nls(ws_vbTypical,data=ws_data_forfitting, start=list(K=ws_vbStarts$K, t0=-3))
 
 plot(femaleLH$age, femaleLH$Len, xlim=c(1,20), ylim=c(100, 600))
+axis(1, at = c(1:20))
 exes<- 1:20
 whys<- ws_vbStarts$Linf*(1-exp(-coef(ws_fitTypical)[1]*(exes-coef(ws_fitTypical)[2])))
-lines(exes, whys)
+lines(exes, whys, lwd = 3)
+
 
 # sd about mean: Pierce et al. say that they use max(L_obs)-Linf, but I can't make it make sense.
 ws_grow_sd<- 25 #abs(max(femaleLH$Len)-500)
@@ -126,7 +128,7 @@ lines(exes, ws_test_whys, lty = 2)
 ###########################################################################
 # expectation: ~5% of age 2 spawn, over 50% at age 3, 90% from age 4 onwards
 # point estimates from literature
-ws_matur_points<- data.frame(len=c(150-10, 192-10, 200-10, 220-10, 260, 490),
+ws_matur_points<- data.frame(len=c(150, 192, 200, 220, 260, 490),
                           p_spawn = c(0, 0.01, 0.05, 0.5, 0.9, 0.9))
 
 # fit a logistic curve:

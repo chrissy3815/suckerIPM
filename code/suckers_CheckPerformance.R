@@ -26,7 +26,7 @@ ss_whys<- exp(ss_m_par$egg_logslope*log(exes) + ss_m_par$egg_logintercept)
 ws_whys<- exp(ws_m_par$egg_logslope*log(exes) + ws_m_par$egg_logintercept)
 # hard-coded version (note that if anything changes about the data, this line would be incorrect)
 #whys<- exp(2.776441*log(exes) - 7.988805)
-lines(exes, ws_whys)
+lines(exes, ws_whys, lwd = 3)
 
 
 # eigenvalues and eigenvectors:
@@ -49,7 +49,7 @@ ws_popvec<- ws_eigz$vectors[,1]
 ws_popvec<- Re(ws_popvec)/sum(Re(ws_popvec))
 ss_popvec<- ss_eigz$vectors[,1]
 ss_popvec<- Re(ss_popvec)/sum(Re(ss_popvec))
-plot(ws_meshpts, ws_popvec, type='l', xlab='Length (mm)', ylab='Probability density', ylim = c(0,.03), main = "length distributions")
+plot(ws_meshpts, ws_popvec, type='l', xlab='Length (mm)', ylab='Probability density', ylim = c(0,.03), main = "Length distributions")
 lines(ss_meshpts, ss_popvec, lty = 2)
 legend(350,0.015, c("White Sucker", "Summer Sucker"), lty = c(1,2))
 
@@ -71,17 +71,46 @@ legend(220,0.02, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 2)
 paste("Age at 99% White Suckers dead = ",age_most_individuals_dead(ws_Pmat, ws_Fmat, proportion=0.99))
 paste("Age at 99% Summer Suckers dead = ",age_most_individuals_dead(ss_Pmat, ss_Fmat, proportion=0.99))
 
+# Plot growthrate
+
+plot(femaleLH$age, femaleLH$Len, xlim=c(1,20), ylim=c(100, 600), xaxt="n", main = "Growth Rates")
+axis(1, at = c(1:20))
+exes<- 1:20
+whys<- ss_vbStarts$Linf*(1-exp(-coef(ss_fitTypical)[1]*(exes-coef(ss_fitTypical)[2])))
+ws_whys <- ws_vbStarts$Linf*(1-exp(-coef(ws_fitTypical)[1]*(exes-coef(ws_fitTypical)[2])))
+lines(exes, whys, lty = 2)
+lines(exes, ws_whys, lty = 1)
+legend(1,550, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 1.4)
+
 # Plot the survival-at-size curve from the kernel:
 ws_surv_at_size<- colSums(ws_Pmat)
 ss_surv_at_size<- colSums(ss_Pmat)
-plot(ws_meshpts, ws_surv_at_size, type='l', xlab='Length (mm)', ylab='Probability of survival to t+1', main = "Survival-at-size curves")
-lines(ss_meshpts, ss_surv_at_size, lty = 2)
-legend(250,0.4, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 2)
+plot(ws_meshpts, ws_surv_at_size, type='l', lwd = 3, xlab='Length (mm)', ylab='Probability of survival to t+1', main = "Survival-at-size curves")
+lines(ss_meshpts, ss_surv_at_size, lwd = 3, lty = 2)
+legend(250,0.4, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 1.4)
 
+# Plot the maturity ogive
+exes<- 1:600
+whys<- ss_fitted_matur(exes)
+ws_whys <- ws_fitted_matur(exes)
+plot(exes, whys, type = "l", lty = 2, lwd = 3, main = "Maturity ogive")
+lines(exes, ws_whys, lwd = 3)
+legend(250,0.4, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 1.7)
+
+# Plot the mature length distribution from the kernel:
 ws_prob_matur<- ws_pb_z(ws_meshpts, ws_m_par)
 ws_length_dist_matur<- ws_popvec*ws_prob_matur
 ss_prob_matur<- ss_pb_z(ss_meshpts, ss_m_par)
 ss_length_dist_matur<- ss_popvec*ss_prob_matur
-plot(ws_meshpts, ws_length_dist_matur, type = 'l', xlab='Length (mm)', ylab='Probability density', ylim = c(0,0.0055), xlim = c(0,600), main = "Mature length distribution")
-lines(ss_meshpts, ss_length_dist_matur, lty = 2)
-legend(260,0.005, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 2)
+plot(ss_meshpts, ss_length_dist_matur, lty = 2, type = 'l', xlab='Length (mm)', ylab='Probability density', ylim = c(0,0.007), xlim = c(0,600), main = "Mature length distribution")
+lines(ws_meshpts, ws_length_dist_matur, lty = 1)
+legend(270,0.005, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 1.4)
+
+# Mature length dist zoom
+ws_prob_matur<- ws_pb_z(ws_meshpts, ws_m_par)
+ws_length_dist_matur<- ws_popvec*ws_prob_matur
+ss_prob_matur<- ss_pb_z(ss_meshpts, ss_m_par)
+ss_length_dist_matur<- ss_popvec*ss_prob_matur
+plot(ss_meshpts, ss_length_dist_matur, lty = 2, type = 'l', xlab='Length (mm)', ylab='Probability density', ylim = c(0,0.008), xlim = c(0,600), main = "Mature length distribution")
+lines(ws_meshpts, ws_length_dist_matur, lty = 1)
+legend(270,0.005, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 1.4)

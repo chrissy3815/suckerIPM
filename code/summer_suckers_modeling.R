@@ -43,30 +43,33 @@ hist(EKL_2021$length, breaks = 30)
 ###########################################################################
 ### Growth model
 ###########################################################################
+femaleLH_ss <- femaleLH[femaleLH$age < 10,]
 
 # linear model:
-lineargrowth<- lm(Len~age, femaleLH)
+lineargrowth<- lm(Len~age, femaleLH_ss)
 summary(lineargrowth)
 
 # scatter plot:
 par(mfrow=c(1,1))
-plot(femaleLH$age, femaleLH$Len)
+plot(femaleLH_ss$age, femaleLH_ss$Len)
 
 ## Fit a von Bertalanffy model using non-linear least squares and a fixed Linf
 
 # Take Linf from the literature: 500 mm, and this is reasonable for the dataset because the largest individual was 465
-ss_vbStarts<- list(Linf=500, K=0.1, t0=-3)
+ss_vbStarts<- list(Linf=400, K=0.1, t0=-3)
 ss_vbTypical<-Len~Linf*(1-exp(-K*(age-t0)))
-ss_data_forfitting<- femaleLH[,c("age", "Len")]
+ss_data_forfitting<- femaleLH_ss[,c("age", "Len")]
 ss_data_forfitting$Linf<- ss_vbStarts$Linf
 #data_forfitting$K<- vbStarts$K
 ss_fitTypical<-nls(ss_vbTypical,data=ss_data_forfitting, start=list(K=ss_vbStarts$K, t0=-3))
 
-plot(femaleLH$age, femaleLH$Len, xlim=c(1,20), ylim=c(100, 600), xaxt="n")
+plot(femaleLH_ss$age, femaleLH_ss$Len, xlim=c(1,20), ylim=c(100, 600), xaxt="n")
 axis(1, at = c(1:20))
 exes<- 1:20
 whys<- ss_vbStarts$Linf*(1-exp(-coef(ss_fitTypical)[1]*(exes-coef(ss_fitTypical)[2])))
-lines(exes, whys)
+lines(exes, whys, lwd = 3)
+
+
 
 # sd about mean: Pierce et al. say that they use max(L_obs)-Linf, but I can't make it make sense.
 ss_grow_sd<- 25 #abs(max(femaleLH$Len)-500)
@@ -77,8 +80,8 @@ ss_growth_params<- list(Linf=500, K=coef(ss_fitTypical)[1], t0=coef(ss_fitTypica
 ### Survival model
 ###########################################################################
 # point estimates from literature
-ss_surv_points<- data.frame(len=c(10, 20, 30, 80, 220, 330),
-                         surv = 1-c(0.997, 0.997, 0.997, 0.97, 0.4, 0.4))
+ss_surv_points<- data.frame(len=c(10, 20, 30, 80, 190, 330),
+                         surv = 1-c(0.997, 0.997, 0.997, 0.97, 0.2, 0.2))
 
 # fit a logistic curve:
 # Survival model a (3-parameter)
@@ -90,10 +93,10 @@ ss_fitted_surv<- function(x){coef(ss_surv_model)[1] / (1+exp(-coef(ss_surv_model
 ss_varied_surv<- function(x){0.75 / (1+exp(-.03*(x-150)))}
 
 # Survival model b (4-parameter)
-ss_surv_min <-  0.005
-ss_surv_max <- 0.60
+ss_surv_min <-  0.003
+ss_surv_max <- 0.80
 ss_surv_alpha <- 125
-ss_surv_beta <- -7
+ss_surv_beta <- -17
 ss_four_fitted_surv<- function(z){
   surv_min + (surv_max - surv_min) /
     (1 + exp(surv_beta * (log(z) - log(surv_alpha))))
@@ -103,8 +106,9 @@ plot(ss_surv_points$len, ss_surv_points$surv)
 exes<- 1:600
 whys<- ss_fitted_surv(exes)
 ss_four_whys <- ss_four_fitted_surv(exes)
-lines(exes, whys)
-lines(exes,ss_four_whys, lty = 2)
+#lines(exes, whys)
+lines(exes,ss_four_whys, lwd = 3, lty = 2)
+lines(exes, ws_whys, lwd = 3, lty = 1)
 
 
 
@@ -121,7 +125,7 @@ ss_test_logintercept = -11.35
 
 # plot it:
 plot(femaleLH$Len, femaleLH$fecundity, xlim=c(0,600),
-     xlab='Female length (mm)', ylab='Annual egg production')
+     xlab='Female length (mm)', ylab='Annual egg production', main = "Egg production model")
 exes<- 1:600
 ss_test_whys<- exp(ss_test_logslope*log(exes) + ss_test_logintercept)
 whys<- exp(ss_egg_logslope*log(exes) + ss_egg_logintercept)
@@ -162,7 +166,7 @@ legend(250,0.4, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 1.7)
 ss_m_par <- list(
   ## Growth parameters
   grow_rate = ss_growth_params$K, # growth rate
-  Linf  = ss_growth_params$Linf, # maximum length in mm
+  Linf  = 300, # ss_growth_params$Linf, # maximum length in mm
   grow_sd   = ss_growth_params$grow_sd,  # growth sd
   ## Survival parameters a
   # surv_max = coef(ss_surv_model)[1], # maximum survival value
@@ -177,7 +181,7 @@ ss_m_par <- list(
   recruit_mean = 112, # mean size of age-1 individuals
   recruit_sd = ss_growth_params$grow_sd, # same as grow_sd
   ## PLACEHOLDER:
-  egg_viable = 0.03,
+  egg_viable = 0.02,
   ## Estimated from fecundity data
   egg_logslope = ss_test_logslope, #egg_model$coefficients[2], # 2.776441
   egg_logintercept = ss_test_logintercept, #egg_model$coefficients[1], # -7.988805
@@ -186,7 +190,7 @@ ss_m_par <- list(
   pb_k = coef(ss_matur_model)[2], # rate of increase of spawning probability with size
   pb_midsize = coef(ss_matur_model)[3], # size at which 50% of individuals spawn
   ## YOY survival probability:
-  s0= 0.1 # PLACEHOLDER
+  s0= 0.15 # increased compared to white sucker. possibly higher from spawning season
 )
 
 ##########################
@@ -208,9 +212,9 @@ ss_g_z1z <- function(z1, z, ss_m_par) {
 }
 
 # Adult Survival function a, 3-parameter logistic
-ws_s_z <- function(z, ss_m_par) {
-  ws_m_par$surv_min + (ws_m_par$surv_max - ws_m_par$surv_min) /
-    (1 + exp(ws_m_par$surv_beta * (log(z) - log(ws_m_par$surv_alpha))))
+ss_s_z <- function(z, ss_m_par) {
+  ss_m_par$surv_min + (ss_m_par$surv_max - ss_m_par$surv_min) /
+    (1 + exp(ss_m_par$surv_beta * (log(z) - log(ss_m_par$surv_alpha))))
 }
 
 
