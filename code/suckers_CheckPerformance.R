@@ -70,6 +70,8 @@ legend(220,0.02, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 2)
 # calculate the age at which 99% of individuals are dead:
 paste("Age at 99% White Suckers dead = ",age_most_individuals_dead(ws_Pmat, ws_Fmat, proportion=0.99))
 paste("Age at 99% Summer Suckers dead = ",age_most_individuals_dead(ss_Pmat, ss_Fmat, proportion=0.99))
+paste("Age at 99.9% White Suckers dead = ",age_most_individuals_dead(ws_Pmat, ws_Fmat, proportion=0.999))
+paste("Age at 99.9% Summer Suckers dead = ",age_most_individuals_dead(ss_Pmat, ss_Fmat, proportion=0.999))
 
 # Plot growthrate
 

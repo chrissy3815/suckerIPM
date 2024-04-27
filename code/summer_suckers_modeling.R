@@ -94,7 +94,7 @@ ss_varied_surv<- function(x){0.75 / (1+exp(-.03*(x-150)))}
 
 # Survival model b (4-parameter)
 ss_surv_min <-  0.003
-ss_surv_max <- 0.80
+ss_surv_max <- 0.75
 ss_surv_alpha <- 125
 ss_surv_beta <- -17
 ss_four_fitted_surv<- function(z){
