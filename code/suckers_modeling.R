@@ -86,7 +86,7 @@ ws_fitted_surv<- function(x){coef(ws_surv_model)[1] / (1+exp(-coef(ws_surv_model
 
 # Survival model b (4-parameter)
 surv_min <-  0.003
-surv_max <- 0.80
+surv_max <- 0.75
 surv_alpha <- 130
 surv_beta <- -17
 four_fitted_surv<- function(z){
@@ -128,7 +128,7 @@ lines(exes, ws_test_whys, lty = 2)
 ###########################################################################
 # expectation: ~5% of age 2 spawn, over 50% at age 3, 90% from age 4 onwards
 # point estimates from literature
-ws_matur_points<- data.frame(len=c(150, 192, 200, 220, 260, 490),
+ws_matur_points<- data.frame(len=c(200, 225, 250, 280, 320, 490),
                           p_spawn = c(0, 0.01, 0.05, 0.5, 0.9, 0.9))
 
 # fit a logistic curve:

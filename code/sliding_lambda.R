@@ -77,12 +77,12 @@ fitted_surv<- function(x){coef(surv_model)[1] / (1+exp(-coef(surv_model)[2]*(x-c
 
 # Survival model b (4-parameter)
 surv_min <-  0.003
-surv_mid <- 0.75
-surv_max <- 0.8 # used to be controlled by sliding table
+surv_mid <- 0.65
+surv_max <- 0.75 # used to be controlled by sliding table
 surv_alpha <- 125
-surv_alpha2 <- 250
-surv_beta <- -17
-surv_beta2 <- -17
+surv_alpha2 <- 220
+surv_beta <- -25
+surv_beta2 <- -25
 seven_fitted_surv<- function(z) {
   surv_min + ((surv_mid - surv_min) /
     (1 + exp(surv_beta * (log(z) - log(surv_alpha)))))  +
@@ -127,16 +127,18 @@ fitted_matur<- function(x){coef(matur_model)[1] / (1+exp(-coef(matur_model)[2]*(
 ###########################################################################
 ## make table with values of surv_max and pb_midsize
 # just biologically accurate values
-y <- rep(seq(100,300,by = 5), each = 126) # pb_midsize
-z <- rep(seq(250,500, by = 2), time = 41) # Linf
+# y <- rep(seq(100,300,by = 5), each = 126) # pb_midsize
+# z <- rep(seq(250,500, by = 2), time = 41) # Linf
 
 # all values but sub-sampled
-#y <- rep(seq(100,300,by = 5), each = 31) # pb_midsize
-#z <- rep(seq(250,500, by = 8.3), time = 41) # Linf
-
-slide_params <- data.frame(pb_midsize = y, Linf = z) %>% filter(pb_midsize <= (1.125*Linf - 158) + 5 & pb_midsize >= (1.125*Linf - 158) - 5)
+x <- rep(seq(0.03,0.02,by = -.00025), each = 31)
+y <- rep(seq(100,300,by = 5), each = 31) # pb_midsize
+z <- rep(seq(250,500, by = 8.3), time = 41) # Linf
+slide_params <- data.frame(pb_midsize = y, Linf = z, egg_viable = x)
+# bistabe Linf-Lm relationship: pb_midsize <= (1.125*Linf - 158) + 5 & pb_midsize >= (1.125*Linf - 158) - 5
+# slide_params <- data.frame(pb_midsize = y, Linf = z) %>% filter(Linf <= (2.5*pb_midsize - 100) + 20 & Linf >= (2.5*pb_midsize - 100) - 20)
 ## Run model for corresponding values of surv_max and mat_alpha
-lambda_tab <- data.frame(pb_midsize = slide_params$pb_midsize, Linf = slide_params$Linf, lambda = NA)
+lambda_tab <- data.frame(pb_midsize = slide_params$pb_midsize, Linf = slide_params$Linf, egg_viable = slide_params$egg_viable, lambda = NA)
 surv_tab <- data.frame(len = NA, surv = NA, pb_midsize = NA)
 
 for(i in 1:length(slide_params$pb_midsize)){
@@ -158,7 +160,7 @@ m_par <- list(
   recruit_mean = 112, # mean size of age-1 individuals
   recruit_sd = growth_params$grow_sd, # same as grow_sd
   ## PLACEHOLDER:
-  egg_viable = 0.02,
+  egg_viable = slide_params$egg_viable[i],
   ## Estimated from fecundity data
   egg_logslope = egg_logslope, #egg_model$coefficients[2], # 3.1082
   egg_logintercept = egg_logintercept, #egg_model$coefficients[1], # -9.7183
@@ -167,7 +169,7 @@ m_par <- list(
   pb_k = coef(matur_model)[2], # rate of increase of spawning probability with size
   pb_midsize = slide_params$pb_midsize[i], # size at which 50% of individuals spawn
   ## YOY survival probability:
-  s0= 0.1 # PLACEHOLDER
+  s0= 0.12 # PLACEHOLDER
 )
 
 ##########################
@@ -298,31 +300,39 @@ lambda_tab %>% ggplot(aes(x = pb_midsize, y = lambda)) +
 # equation from Froese and Binohlan 2000.
 # original equation Lm = exp(0.9469*log(Linf)-0.1162)
 #lambda_tab <- lambda_tab %>% mutate(Lm = exp(1.92*log(Linf)-6.04)) # tweaked from Froesse and Binghlan 2000
-lambda_tab <- lambda_tab %>% mutate(Lm = Linf/1.2) %>% # Lm = length at maturity?
-  mutate(Lm2 = 1.125*Linf - 158)
+lambda_tab <- lambda_tab %>% mutate(Lm = Linf*0.296) %>% # Lm = length at maturity
+  mutate(Lm2 = (Linf -100)/1.25)
+# Estimate mass gain per year based on vB growth curve and convert to mass
+# calculate mass of gonads for female and add that mass to mass gained per year to get mass gained per year from not spawning
+# use this relationship to create a Linf line reflecting penalty for reproducing
+
+
 plot(lambda_tab$Lm,lambda_tab$Linf)
 plot(lambda_tab$Lm2,lambda_tab$Linf)
 
 # plot fitness heatmap with Lm-Linf relationship
 my_colors <- c("midnightblue","lightblue","mediumpurple","salmon", "orangered4")
 # my_values <- c(0,0.32,0.36,0.40,1)
-my_values <- c(0,0.22,0.24,0.26,1)
+my_values <- c(0,0.33,0.37,0.41,1)
+my_points <- data.frame(x = c(160,280), y = c(300,450))
 #my_values <- c(0,0.38,0.40,0.42,1)
 
-lambda_tab %>% filter(lambda >= 1) %>% ggplot(aes(x = pb_midsize, y = Linf)) +
+lambda_tab %>% ggplot(aes(x = pb_midsize, y = Linf)) +
   geom_tile(aes(fill = lambda)) +
   scale_fill_gradientn(colors = my_colors, values = my_values) +
-  geom_line(aes(x = Lm2,y = Linf), lwd = 1, color = "red") +
+  geom_line(aes(x = Lm,y = Linf), lwd = 1, color = "red") +
+  geom_line(aes(x = Lm2,y = Linf), lwd = 1, color = "black") +
+  annotate("point",x = my_points$x, y = my_points$y) +
   #geom_line(aes(x = Lm, y = Linf), lty = 2) +
   cowplot::theme_cowplot()
 
-lambda_tab_bacc <- lambda_tab %>% filter(pb_midsize <= (1.125*Linf - 158) + 5 & pb_midsize >= (1.125*Linf - 158) - 5)
+lambda_tab_bacc <- lambda_tab %>% filter(Linf <= (1.25*pb_midsize + 100) + 5 & Linf >= (1.25*pb_midsize + 100) - 5)
 
-my_values <- c(0,0.54,0.56,0.58,1)
+my_values <- c(0,0.52,0.54,0.56,1)
 lambda_tab_bacc %>% ggplot(aes(x = pb_midsize, y = Linf)) +
   geom_tile(aes(fill = lambda)) +
   scale_fill_gradientn(colors = my_colors, values = my_values) +
-  geom_line(aes(x = Lm2,y = Linf)) +
+  #geom_line(aes(x = Lm2,y = Linf)) +
   cowplot::theme_cowplot()
 
 lambda_tab_bacc %>% ggplot(aes(x = pb_midsize, y = lambda)) +

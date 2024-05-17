@@ -56,7 +56,7 @@ plot(femaleLH_ss$age, femaleLH_ss$Len)
 ## Fit a von Bertalanffy model using non-linear least squares and a fixed Linf
 
 # Take Linf from the literature: 500 mm, and this is reasonable for the dataset because the largest individual was 465
-ss_vbStarts<- list(Linf=400, K=0.1, t0=-3)
+ss_vbStarts<- list(Linf=380, K=0.1, t0=-3)
 ss_vbTypical<-Len~Linf*(1-exp(-K*(age-t0)))
 ss_data_forfitting<- femaleLH_ss[,c("age", "Len")]
 ss_data_forfitting$Linf<- ss_vbStarts$Linf
@@ -94,12 +94,12 @@ ss_varied_surv<- function(x){0.75 / (1+exp(-.03*(x-150)))}
 
 # Survival model b (4-parameter)
 ss_surv_min <-  0.003
-ss_surv_max <- 0.75
+ss_surv_max <- 0.65
 ss_surv_alpha <- 125
-ss_surv_beta <- -17
+ss_surv_beta <- -25
 ss_four_fitted_surv<- function(z){
-  surv_min + (surv_max - surv_min) /
-    (1 + exp(surv_beta * (log(z) - log(surv_alpha))))
+  ss_surv_min + (ss_surv_max - ss_surv_min) /
+    (1 + exp(ss_surv_beta * (log(z) - log(ss_surv_alpha))))
 }
 # plot:
 plot(ss_surv_points$len, ss_surv_points$surv)
@@ -181,7 +181,7 @@ ss_m_par <- list(
   recruit_mean = 112, # mean size of age-1 individuals
   recruit_sd = ss_growth_params$grow_sd, # same as grow_sd
   ## PLACEHOLDER:
-  egg_viable = 0.02,
+  egg_viable = 0.03,
   ## Estimated from fecundity data
   egg_logslope = ss_test_logslope, #egg_model$coefficients[2], # 2.776441
   egg_logintercept = ss_test_logintercept, #egg_model$coefficients[1], # -7.988805
