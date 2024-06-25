@@ -66,7 +66,7 @@ growth_params<- list(Linf=500, K=coef(fitTypical)[1], t0=coef(fitTypical)[2],
 ###########################################################################
 # point estimates from literature
 surv_points<- data.frame(len=c(130, 140, 150, 180, 250, 300),
-                         surv = 1-c(0.99, 0.99, 0.99, 0.92, 0.2, 0.2))
+                         surv = 1-c(0.99, 0.99, 0.99, 0.92, 0.25, 0.25))
 
 # fit a logistic curve:
 surv_model<- nls(surv~Smax/(1+exp(-k*(len-x0))), data=surv_points,
@@ -79,7 +79,7 @@ fitted_surv<- function(x){coef(surv_model)[1] / (1+exp(-coef(surv_model)[2]*(x-c
 surv_min <-  0.003
 # surv_mid <- 0.6
 surv_max <- 0.8 # used to be controlled by sliding table
-surv_alpha <- 130
+surv_alpha <- 135
 # surv_alpha2 <- 250
 surv_beta <- -17
 # surv_beta2 <- -17
@@ -128,47 +128,43 @@ fitted_matur<- function(x){coef(matur_model)[1] / (1+exp(-coef(matur_model)[2]*(
 ### Mostly following Pierce et al. 2023, model building:
 ###########################################################################
 ## make table with values of surv_max and pb_midsize
-# x <- c(seq(0.8,0.8,length.out = 10),seq(0.80, 0.60, length.out = 10), seq(0.6,0.6,length.out = 5)) # fitness benefit ends at 240
-# x <- c(seq(0.85,0.85,length.out = 5), seq(0.85,0.8,length.out = 2),seq(0.80, 0.80, length.out = 8), seq(0.8,0.7,length.out = 10)) # max survival
-#x <- rep(seq(0.7,0.85,by=0.005), times = 41) # surv_max
-y <- rep(seq(100,300,by =5), each = 31) # pb_midsize
-#z <- c(rep(seq(250,300, by = 5), each = 31), rep(300, times = 14, each = 31),rep(seq(300, 475, by = 16), each = 31), rep(475, times = 5, each = 31)) # Linf
-#z <- c(rep(seq(250,300, by = 5), each = 31),rep(seq(300, 475, by = 7.2), each = 31), rep(475, times = 5, each = 31)) # no stall 150-225
-z <- rep(seq(250,500, by = 8.3), time = 41)
-x <- rep(seq(0.7,0.85,by=0.005), times = 41)
 
-slide_params <- matrix(c(x,y,z), ncol = 3, nrow = 1271)
+x <- c(rep(seq(0.58888,0.75,by = 0.005035), each = 31), rep(0.75,each=248)) # max survival
+y <- rep(seq(121.6,297.6,by = 4.4), each = 31) # pb_midsize
+v <- rep(seq(-1.091682,-0.3280479, by = 0.02545447), time = 41) # t0
+w <- rep(seq(0.1485557,0.098245, by = -0.00167702), time = 41) # k rate
+z <- rep(seq(317,482, by = 5.5), time = 41) # Linf *fit to 270, not 280
+u <- c(rep(0.022, each = 341),rep(seq(0.022,0.015, by = - 0.0003043478), each = 31), rep(0.015, each = 186)) #egg viable
+slide_params <- data.frame(t0 = v, k = w, pb_midsize = y, Linf = z, max_surv = x, egg_viable = u) %>% filter(pb_midsize < Linf)
 ## Run model for corresponding values of surv_max and mat_alpha
-lambda_tab <- data.frame(surv_max = slide_params[,1], pb_midsize = slide_params[,2], Linf = slide_params[,3], lambda = NA)
+lambda_tab <- data.frame(pb_midsize = slide_params$pb_midsize, Linf = slide_params$Linf, max_surv = slide_params$max_surv,egg_viable = slide_params$egg_viable, lambda = NA, K = NA, t0 = NA, age_999 = NA)
 surv_tab <- data.frame(len = NA, surv = NA, pb_midsize = NA)
 
-for(i in 1:length(slide_params)){
+for(i in 1:length(slide_params$pb_midsize)){
   # assign parameters:
   m_par <- list(
     ## Growth parameters
-    grow_rate = growth_params$K, # growth rate
-    Linf  = slide_params[i,3], # scale maximum length with size at maturity in mm
-    grow_sd   = growth_params$grow_sd,  # growth sd #growth_params$Linf,
+    grow_rate = slide_params$k[i], # growth rate
+    Linf = slide_params$Linf[i], # scale maximum length with size at maturity in mm
+    grow_sd = 25,  # growth sd #growth_params$Linf,
     ## Survival 4-parameter, single logit
     surv_min = surv_min, #survival minimum
-    # surv_mid = surv_mid,
-    surv_max = surv_max, #slide_params[i,1],
+    surv_max = slide_params$max_surv[i],
     surv_alpha = surv_alpha,
-    # surv_alpha2 = surv_alpha2,
     surv_beta = surv_beta,
     # surv_beta2 = surv_beta2,
     ## Size of age-1 individuals:
     recruit_mean = 112, # mean size of age-1 individuals
     recruit_sd = growth_params$grow_sd, # same as grow_sd
     ## PLACEHOLDER:
-    egg_viable = 0.02,
+    egg_viable = slide_params$egg_viable[i],
     ## Estimated from fecundity data
     egg_logslope = egg_logslope, #egg_model$coefficients[2], # 3.1082
     egg_logintercept = egg_logintercept, #egg_model$coefficients[1], # -9.7183
     ## Spawning Probability
     pb_max = coef(matur_model)[1], # maximum probability of spawning
     pb_k = coef(matur_model)[2], # rate of increase of spawning probability with size
-    pb_midsize = slide_params[i,2], # size at which 50% of individuals spawn
+    pb_midsize = slide_params$pb_midsize[i], # size at which 50% of individuals spawn
     ## YOY survival probability:
     s0= 0.1 # PLACEHOLDER
   )
@@ -264,6 +260,9 @@ for(i in 1:length(slide_params)){
   # population growth rate
   lambda<- max(Re(eigz$values))
   lambda_tab$lambda[i] <- lambda
+  lambda_tab$K[i] <- growth_params$K
+  lambda_tab$t0[i] <- growth_params$t0
+  lambda_tab$age_999[i] <- age_most_individuals_dead(Pmat, Fmat, proportion=0.999)
 
   ## Make data.frames that have survival curve data
   surv_at_size<- colSums(Pmat)
@@ -299,31 +298,28 @@ lambda_tab %>% ggplot(aes(x = pb_midsize, y = lambda)) +
 # equation from Froese and Binohlan 2000.
 # original equation Lm = exp(0.9469*log(Linf)-0.1162)
 #lambda_tab <- lambda_tab %>% mutate(Lm = exp(1.92*log(Linf)-6.04)) # tweaked from Froesse and Binghlan 2000
-lambda_tab <- lambda_tab %>% mutate(Lm = Linf/1.1) %>%
-  mutate(Lm2 = 1*Linf - 110)
-plot(lambda_tab$Lm,lambda_tab$Linf)
-plot(lambda_tab$Lm2,lambda_tab$Linf)
+age_Lm_Linf <- data.frame(Linf = seq(317,482, by = 5.5), Lm = seq(140,290,by = 5), K = seq(0.1485557,0.098245, by = -0.00167702), t0 = seq(-1.091682,-0.3280479, by = 0.02545447))
+age_Lm_Linf <- age_Lm_Linf %>% mutate(age = round(((log(1-Lm/Linf))/-K)+t0)) %>%
+  mutate(Linf_est = 460/(1+0.0398)^(10-age))
+
+
+lambda_tab <- lambda_tab %>% mutate(age_estm = ifelse(pb_midsize < Linf,round(((log(1-pb_midsize/Linf))/-K)+t0,0), NA)) %>%
+  mutate(Linf_est = ifelse(age_estm <= 11, 460/(1+0.07)^(8-age_estm), NA))
+Lm_Linf <- lambda_tab %>% filter(Linf <= Linf_est+5 & Linf > Linf_est-2)
 
 # plot fitness heatmap with Lm-Linf relationship
 my_colors <- c("midnightblue","lightblue","mediumpurple","salmon", "orangered4")
 # my_values <- c(0,0.32,0.36,0.40,1)
-my_values <- c(0,0.32,0.36,0.40,1)
+my_values <- c(0,0.86,0.90,0.94,1)
 
 lambda_tab %>% ggplot(aes(x = pb_midsize, y = Linf)) +
   geom_tile(aes(fill = lambda)) +
   scale_fill_gradientn(colors = my_colors, values = my_values) +
-  geom_line(aes(x = Lm2,y = Linf)) +
+  annotate("line",x = Lm_Linf$pb_midsize, y = Lm_Linf$Linf_est, lwd = 1) +
   #geom_line(aes(x = Lm, y = Linf), lty = 2) +
   cowplot::theme_cowplot()
 
-lambda_tab_bacc <- lambda_tab %>% filter(pb_midsize <= (1*Linf - 110) + 4 & pb_midsize >= (1*Linf - 110) - 4)
-
-my_values <- c(0,0.17,0.21,0.25,1)
-lambda_tab_bacc %>% ggplot(aes(x = pb_midsize, y = Linf)) +
-  geom_tile(aes(fill = lambda)) +
-  scale_fill_gradientn(colors = my_colors, values = my_values) +
-  geom_line(aes(x = Lm2,y = Linf)) +
-  cowplot::theme_cowplot()
+lambda_tab_bacc <- lambda_tab %>% filter(Linf <= Linf_est+12 & Linf > Linf_est-2)
 
 lambda_tab_bacc %>% ggplot(aes(x = pb_midsize, y = lambda)) +
   geom_point() +

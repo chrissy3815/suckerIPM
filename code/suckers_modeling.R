@@ -51,23 +51,25 @@ plot(femaleLH$age, femaleLH$Len)
 ## Fit a von Bertalanffy model using non-linear least squares and a fixed Linf
 
 # Take Linf from the literature: 500 mm, and this is reasonable for the dataset because the largest individual was 465
-ws_vbStarts<- list(Linf=500, K=0.1, t0=-3)
+ws_vbStarts<- list(Linf=460, K=0.1, t0=-3)
 ws_vbTypical<-Len~Linf*(1-exp(-K*(age-t0)))
 ws_data_forfitting<- femaleLH[,c("age", "Len")]
 ws_data_forfitting$Linf<- ws_vbStarts$Linf
 #data_forfitting$K<- vbStarts$K
 ws_fitTypical<-nls(ws_vbTypical,data=ws_data_forfitting, start=list(K=ws_vbStarts$K, t0=-3))
+#ws_fitTypical_ssdata<-nls(ws_vbTypical,data=ss_data_forfitting, start=list(K=ws_vbStarts$K, t0=-3))
 
 plot(femaleLH$age, femaleLH$Len, xlim=c(1,20), ylim=c(100, 600))
 axis(1, at = c(1:20))
 exes<- 1:20
 whys<- ws_vbStarts$Linf*(1-exp(-coef(ws_fitTypical)[1]*(exes-coef(ws_fitTypical)[2])))
+#ws_ssdata_whys <- ws_vbStarts$Linf*(1-exp(-coef(ws_fitTypical_ssdata)[1]*(exes-coef(ws_fitTypical_ssdata)[2])))
 lines(exes, whys, lwd = 3)
-
+#lines(exes, ws_ssdata_whys, lwd = 3, lty = 2)
 
 # sd about mean: Pierce et al. say that they use max(L_obs)-Linf, but I can't make it make sense.
 ws_grow_sd<- 25 #abs(max(femaleLH$Len)-500)
-ws_growth_params<- list(Linf=500, K=coef(ws_fitTypical)[1], t0=coef(ws_fitTypical)[2],
+ws_growth_params<- list(Linf=ws_vbStarts$Linf, K=coef(ws_fitTypical)[1], t0=coef(ws_fitTypical)[2],
                      grow_sd = ws_grow_sd)
 
 ###########################################################################
@@ -85,15 +87,27 @@ ws_surv_model<- nls(surv~Smax/(1+exp(-k*(len-x0))), data=ws_surv_points,
 ws_fitted_surv<- function(x){coef(ws_surv_model)[1] / (1+exp(-coef(ws_surv_model)[2]*(x-coef(ws_surv_model)[3])))}
 
 # Survival model b (4-parameter)
-surv_min <-  0.003
-surv_max <- 0.75
-surv_alpha <- 130
-surv_beta <- -17
-four_fitted_surv<- function(z){
-  surv_min + (surv_max - surv_min) /
-    (1 + exp(surv_beta * (log(z) - log(surv_alpha))))
+# surv_min <-  0.003
+# surv_max <- 0.75
+# surv_alpha <- 112
+# surv_beta <- -17
+# four_fitted_surv<- function(z){
+#   surv_min + (surv_max - surv_min) /
+#     (1 + exp(surv_beta * (log(z) - log(surv_alpha))))
+# }
+ws_surv_min <-  0.003
+ws_surv_mid <- 0.62
+ws_surv_max <- 0.75 # controlled by sliding table
+ws_surv_alpha <- 112
+ws_surv_alpha2 <- 220
+ws_surv_beta <- -25
+ws_surv_beta2 <- -25
+ws_seven_fitted_surv<- function(z) {
+  ws_surv_min + ((ws_surv_mid - ws_surv_min) /
+                (1 + exp(ws_surv_beta * (log(z) - log(ws_surv_alpha)))))  +
+    ((ws_surv_max - ws_surv_mid) /
+       (1 + exp(ws_surv_beta2 * (log(z) - log(ws_surv_alpha2)))))
 }
-
 # plot:
 plot(ws_surv_points$len, ws_surv_points$surv, xlim = c(0,500), ylim = c(0,1), main = "3-param vs 4-param survival curve")
 exes<- 1:600
@@ -126,15 +140,15 @@ lines(exes, ws_test_whys, lty = 2)
 ###########################################################################
 ### Maturity ogive
 ###########################################################################
-# expectation: ~5% of age 2 spawn, over 50% at age 3, 90% from age 4 onwards
+# expectation: ~5% of age 2 spawn, over 50% at age 3, 65% from age 4 onwards
 # point estimates from literature
 ws_matur_points<- data.frame(len=c(200, 225, 250, 280, 320, 490),
-                          p_spawn = c(0, 0.01, 0.05, 0.5, 0.9, 0.9))
+                          p_spawn = c(0, 0.01, 0.05, 0.5, 0.65, 0.65))
 
 # fit a logistic curve:
 ws_matur_model<- nls(p_spawn~Pmax/(1+exp(-k*(len-x0))), data=ws_matur_points,
                   algorithm = "port",
-                  start = list(Pmax = 0.9, k = 0.1, x0 = 230),
+                  start = list(Pmax = 0.65, k = 0.1, x0 = 230),
                   lower = rep(0,3), upper = c(1, Inf, 600))
 ws_fitted_matur<- function(x){coef(ws_matur_model)[1] / (1+exp(-coef(ws_matur_model)[2]*(x-coef(ws_matur_model)[3])))}
 # plot:
@@ -158,15 +172,18 @@ ws_m_par <- list(
   #surv_k = coef(ws_surv_model)[2], # rate of increase of survival
   #surv_midsize = coef(ws_surv_model)[3], # size at which survival is halfway between upper and lower limit
   ## Survival parameters b
-  surv_min =  surv_min,
-  surv_max = surv_max,
-  surv_alpha = surv_alpha,
-  surv_beta = surv_beta,
+  surv_min =  ws_surv_min,
+  surv_mid = ws_surv_mid,
+  surv_max = ws_surv_max,
+  surv_alpha = ws_surv_alpha,
+  surv_alpha2 = ws_surv_alpha2,
+  surv_beta = ws_surv_beta,
+  surv_beta2 = ws_surv_beta2,
   ## Size of age-1 individuals:
   recruit_mean = 112, # mean size of age-1 individuals
   recruit_sd = ws_growth_params$grow_sd, # same as grow_sd
   ## PLACEHOLDER:
-  egg_viable = 0.02,
+  egg_viable = 0.015,
   ## Estimated from fecundity data
   egg_logslope = ws_test_logslope, #ws_egg_model$coefficients[2], # 3.1082
   egg_logintercept = ws_test_logintercept, #ws_egg_model$coefficients[1], # -9.7183
@@ -197,9 +214,16 @@ ws_g_z1z <- function(z1, z, ws_m_par) {
 }
 
 ## Adult Survival function, 3-parameter logistic
+# ws_s_z <- function(z, ws_m_par) {
+#   ws_m_par$surv_min + (ws_m_par$surv_max - ws_m_par$surv_min) /
+#     (1 + exp(ws_m_par$surv_beta * (log(z) - log(ws_m_par$surv_alpha))))
+# }
+
 ws_s_z <- function(z, ws_m_par) {
-  ws_m_par$surv_min + (ws_m_par$surv_max - ws_m_par$surv_min) /
-    (1 + exp(ws_m_par$surv_beta * (log(z) - log(ws_m_par$surv_alpha))))
+  ws_m_par$surv_min + ((ws_m_par$surv_mid - ws_m_par$surv_min) /
+                      (1 + exp(ws_m_par$surv_beta * (log(z) - log(ws_m_par$surv_alpha)))))+
+    ((ws_m_par$surv_max - ws_m_par$surv_mid) /
+       (1 + exp(ws_m_par$surv_beta2 * (log(z) - log(ws_m_par$surv_alpha2)))))
 }
 
 ## Reproduction, log-linear
@@ -260,9 +284,9 @@ ws_Kmat<- ws_Pmat+ws_Fmat
 m_ws_Kmat<- ws_Kmat^0.3
 
 ## Plot the kernels to check it looks okay
-matrix.image(ws_Pmat, x=ws_meshpts, y=ws_meshpts, main='Growth+Survival')
-matrix.image(ws_Fmat, x=ws_meshpts, y=ws_meshpts, main='Reproduction')
-matrix.image(m_ws_Kmat, x=ws_meshpts, y=ws_meshpts, main='Projection Kernel^0.3')
+# matrix.image(ws_Pmat, x=ws_meshpts, y=ws_meshpts, main='Growth+Survival')
+# matrix.image(ws_Fmat, x=ws_meshpts, y=ws_meshpts, main='Reproduction')
+# matrix.image(m_ws_Kmat, x=ws_meshpts, y=ws_meshpts, main='Projection Kernel^0.3')
 
 ## Calculate a few metrics to see how the model is behaving:
 ws_eigz<- eigen(ws_Kmat)

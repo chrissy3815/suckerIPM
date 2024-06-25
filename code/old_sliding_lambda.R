@@ -56,7 +56,7 @@ plot(femaleLH_ss$age, femaleLH_ss$Len)
 ## Fit a von Bertalanffy model using non-linear least squares and a fixed Linf
 
 # Take Linf from the literature: 500 mm, and this is reasonable for the dataset because the largest individual was 465
-ss_vbStarts<- list(Linf=350, K=0.1, t0=-3)
+ss_vbStarts<- list(Linf=340, K=0.1, t0=-3)
 ss_vbTypical<-Len~Linf*(1-exp(-K*(age-t0)))
 ss_data_forfitting<- femaleLH_ss[,c("age", "Len")]
 ss_data_forfitting$Linf<- ss_vbStarts$Linf
@@ -75,51 +75,35 @@ lines(exes, whys, lwd = 3)
 
 # sd about mean: Pierce et al. say that they use max(L_obs)-Linf, but I can't make it make sense.
 ss_grow_sd<- 25 #abs(max(femaleLH$Len)-500)
-ss_growth_params<- list(Linf=350, K=coef(ss_fitTypical)[1], t0=coef(ss_fitTypical)[2],
-                     grow_sd = ss_grow_sd)
+ss_growth_params<- list(Linf=340, K=coef(ss_fitTypical)[1], t0=coef(ss_fitTypical)[2],
+                        grow_sd = ss_grow_sd)
 
 ###########################################################################
 ### Survival model
 ###########################################################################
-# point estimates from literature
-ss_surv_points<- data.frame(len=c(10, 20, 30, 80, 190, 330),
-                         surv = 1-c(0.997, 0.997, 0.997, 0.97, 0.2, 0.2))
 
-# fit a logistic curve:
-# Survival model a (3-parameter)
-ss_surv_model<- nls(surv~Smax/(1+exp(-k*(len-x0))), data=ss_surv_points,
-                 algorithm = "port",
-                 start = list(Smax = 0.6, k = 0.1, x0 = 130),
-                 lower = rep(0,3), upper = c(1, Inf, 600))
-ss_fitted_surv<- function(x){coef(ss_surv_model)[1] / (1+exp(-coef(ss_surv_model)[2]*(x-coef(ss_surv_model)[3])))}
-ss_varied_surv<- function(x){0.75 / (1+exp(-.03*(x-150)))}
-
-# Survival model b (4-parameter)
+# Survival model 2 logistic from Miller et al and Begely et al (4-parameter)
 ss_surv_min <-  0.003
-ss_surv_mid <- 0.62
-ss_surv_max <- 0.65
+ss_surv_mid <- 0.65
+ss_surv_max <- 0.65 # controlled by sliding table
 ss_surv_alpha <- 112
 ss_surv_alpha2 <- 220
 ss_surv_beta <- -25
 ss_surv_beta2 <- -25
 ss_seven_fitted_surv<- function(z) {
   ss_surv_min + ((ss_surv_mid - ss_surv_min) /
-                   (1 + exp(ss_surv_beta * (log(z) - log(ss_surv_alpha)))))  +
+                (1 + exp(ss_surv_beta * (log(z) - log(ss_surv_alpha)))))  +
     ((ss_surv_max - ss_surv_mid) /
        (1 + exp(ss_surv_beta2 * (log(z) - log(ss_surv_alpha2)))))
 }
-# ss_four_fitted_surv<- function(z){
-#   ss_surv_min + (ss_surv_max - ss_surv_min) /
-#     (1 + exp(ss_surv_beta * (log(z) - log(ss_surv_alpha))))
-# }
-# plot:
-plot(ss_surv_points$len, ss_surv_points$surv)
-exes<- 1:600
-whys<- ss_fitted_surv(exes)
-ss_seven_whys <- ss_seven_fitted_surv(exes)
-#lines(exes, whys)
-lines(exes,ss_seven_whys, lwd = 3, lty = 2)
-lines(exes, ws_whys, lwd = 3, lty = 1)
+
+len <- 1:600
+ss_survl <- ss_seven_fitted_surv(len)
+ss_surv_dat <- data.frame(len, ss_survl)
+ss_surv_dat %>% ggplot(aes(x = len, y = ss_survl)) +
+  geom_line() +
+  labs(x = "Length (mm)", y = "Survival") +
+  cowplot::theme_cowplot()
 
 
 
@@ -148,16 +132,16 @@ lines(exes, ss_test_whys)
 ###########################################################################
 ### Maturity ogive
 ###########################################################################
-# expectation: ~5% of age 2 spawn, over 50% at age 3, 65% from age 4 onwards
+# expectation: ~5% of age 2 spawn, over 50% at age 3, 90% from age 4 onwards
 # point estimates from Elk Lake data
 ss_matur_points<- data.frame(len=c(90, 132, 150, 170, 190, 420),
-                          p_spawn = c(0, 0.01, 0.05, 0.5, 0.65, 0.65))
+                             p_spawn = c(0, 0.01, 0.05, 0.5, 0.9, 0.9))
 
 # fit a logistic curve:
 ss_matur_model<- nls(p_spawn~Pmax/(1+exp(-k*(len-x0))), data=ss_matur_points,
-                  algorithm = "port",
-                  start = list(Pmax = 0.65, k = 0.1, x0 = 170),
-                  lower = rep(0,3), upper = c(1, Inf, 600))
+                     algorithm = "port",
+                     start = list(Pmax = 0.9, k = 0.1, x0 = 170),
+                     lower = rep(0,3), upper = c(1, Inf, 600))
 ss_fitted_matur<- function(x){coef(ss_matur_model)[1] / (1+exp(-coef(ss_matur_model)[2]*(x-coef(ss_matur_model)[3])))}
 
 # plot:
@@ -177,7 +161,7 @@ legend(250,0.4, c("White Sucker", "Summer Sucker"), lty = c(1,2), cex = 1.7)
 ss_m_par <- list(
   ## Growth parameters
   grow_rate = ss_growth_params$K, # growth rate
-  Linf  = 350, # ss_growth_params$Linf, # maximum length in mm
+  Linf  = 340, # ss_growth_params$Linf, # maximum length in mm
   grow_sd   = ss_growth_params$grow_sd,  # growth sd
   ## Survival parameters a
   # surv_max = coef(ss_surv_model)[1], # maximum survival value
@@ -195,7 +179,7 @@ ss_m_par <- list(
   recruit_mean = 112, # mean size of age-1 individuals
   recruit_sd = ss_growth_params$grow_sd, # same as grow_sd
   ## PLACEHOLDER:
-  egg_viable = 0.022,
+  egg_viable = 0.015,
   ## Estimated from fecundity data
   egg_logslope = ss_test_logslope, #egg_model$coefficients[2], # 2.776441
   egg_logintercept = ss_test_logintercept, #egg_model$coefficients[1], # -7.988805
@@ -204,7 +188,7 @@ ss_m_par <- list(
   pb_k = coef(ss_matur_model)[2], # rate of increase of spawning probability with size
   pb_midsize = coef(ss_matur_model)[3], # size at which 50% of individuals spawn
   ## YOY survival probability:
-  s0= 0.1 #
+  s0= 0.1 # increased compared to white sucker. possibly higher from spawning season
 )
 
 ##########################
@@ -225,20 +209,20 @@ ss_g_z1z <- function(z1, z, ss_m_par) {
   return(p_den_grow)
 }
 
-# Adult Survival function a, 4-parameter logistic
-# ss_s_z <- function(z, ss_m_par) {
+## Adult Survival function, double 4-param logistic
+s_z <- function(z, m_par) {
+  m_par$surv_min + ((m_par$surv_mid - m_par$surv_min) /
+                      (1 + exp(m_par$surv_beta * (log(z) - log(m_par$surv_alpha)))))+
+    ((m_par$surv_max - m_par$surv_mid) /
+       (1 + exp(m_par$surv_beta2 * (log(z) - log(m_par$surv_alpha2)))))
+}
+
+
+## Adult Survival function b, 4-parameter logistic
+# s_z <- function(z, ss_m_par) {
 #   ss_m_par$surv_min + (ss_m_par$surv_max - ss_m_par$surv_min) /
 #     (1 + exp(ss_m_par$surv_beta * (log(z) - log(ss_m_par$surv_alpha))))
 # }
-
-
-## Adult Survival function b, 4-parameter double logistic
-ss_s_z <- function(z, ss_m_par) {
-  ss_m_par$surv_min + ((ss_m_par$surv_mid - ss_m_par$surv_min) /
-                         (1 + exp(ss_m_par$surv_beta * (log(z) - log(ss_m_par$surv_alpha))))) +
-    ((ss_m_par$surv_max - ss_m_par$surv_mid) /
-       (1 + exp(ss_m_par$surv_beta2 * (log(z) - log(ss_m_par$surv_alpha2)))))
-}
 
 ## Reproduction, log-linear
 ss_eggs_z <- function(z, ss_m_par) { # Eggs produced (note: data are in thousands)
